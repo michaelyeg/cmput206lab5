@@ -4,32 +4,48 @@ from matplotlib import pyplot as plt
 
 
 img1 = cv2.imread('im1.jpg', 0)
-img2 = cv2.imread('im2.jpg',0)
+img2 = cv2.imread('im2.jpg', 0)
 
 h1, w1 = img1.shape[:2]
 h2, w2 = img2.shape[:2]
 
+MIN_MATCH_COUNT = 10
 
 # Initiate BRISK detector
-# your code #
+detector = cv2.BRISK()
 
 # Find the keypoints and descriptors with BRISK
-# your code #
+kp1, des1 = detector.detectAndCompute(img1, None)
+kp2, des2 = detector.detectAndCompute(img2, None)
 
 # initialize Brute-Force matcher
-# your code #
+# http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_feature2d/py_matcher/py_matcher.html#brute-force-matching-with-sift-descriptors-and-ratio-test
+bf = cv2.BFMatcher()
 
 # use KNN match of Brute-Force matcher for descriptors
-# your code #
+matches = bf.knnMatch(des1, des2, k=2)
+
+good = []
 
 #exclude outliers
-# your code #
+for m, n in matches:
+    if m.distance < 0.7*n.distance:
+        good.append(m)
 
 # Compute homography matrix M
-# your code #
+# http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_feature2d/py_feature_homography/py_feature_homography.html
+if len(good) > MIN_MATCH_COUNT:
+    src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1,1,2)
+    dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1,1,2)
 
+    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+    matchesMask = mask.ravel().tolist()
 
-#if match is done (# your code #):
+else:
+    print "Not enough matches are found - %d/%d" % (len(good), MIN_MATCH_COUNT)
+    matchesMask = None
+
+if matchesMask:
     
   # Initialize a matrix to include all the coordinates in the image, from (0, 0), (1, 0), ..., to (w-1, h-1)
   # In this way, you do not need loops to access every pixel
@@ -75,7 +91,7 @@ h2, w2 = img2.shape[:2]
 
   # The stitched image
   new_img = (new_img1 + new_img2) / 2
-  cv2.imwrite('stitched_img.jpg', new_img);
+  cv2.imwrite('stitched_img.jpg', new_img)
   cv2.imshow("Stitched Image", new_img)
   cv2.waitKey()
   cv2.destroyAllWindows()
